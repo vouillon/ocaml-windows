@@ -5,6 +5,8 @@ SRC = ocaml-src
 
 CORE_OTHER_LIBS = unix str num dynlink
 OTHERLIBRARIES=win32unix str num win32graph dynlink bigarray systhreads
+STDLIB=$(shell $(W32_BINDIR)/ocamlc -config | \
+               sed -n 's/standard_library: \(.*\)/\1/p')
 
 all: stamp-install
 
@@ -24,8 +26,7 @@ stamp-install: stamp-build
 	cp byterun/ocamlrun.target $(W32_PREFIX)/bin/ocamlrun
 # Add a link to camlp4 libraries
 	rm -rf $(W32_PREFIX)/lib/ocaml/camlp4
-	ln -sf $(shell $(W32_BINDIR)/ocamlfind query stdlib)/camlp4 \
-	  $(W32_PREFIX)/lib/ocaml/camlp4
+	ln -sf $(STDLIB)/camlp4 $(W32_PREFIX)/lib/ocaml/camlp4
 	touch stamp-install
 
 stamp-build: stamp-runtime
@@ -88,6 +89,11 @@ stamp-copy:
 # Copy the source code
 	@if ! [ -d $(OCAML_SRC)/byterun ]; then \
 	  echo Error: OCaml sources not found. Check OCAML_SRC variable.; \
+	  exit 1; \
+	fi
+	@if ! [ -f $(W32_BINDIR)/ocamlc ]; then \
+	  echo Error: $(W32_BINDIR)/ocamlc not found. \
+	    Check W32_BINDIR variable.; \
 	  exit 1; \
 	fi
 	cp -a $(OCAML_SRC) $(SRC)
