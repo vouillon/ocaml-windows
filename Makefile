@@ -34,6 +34,9 @@ stamp-build: stamp-runtime
 # Compile the libraries for Windows
 	cd $(SRC) && make -f Makefile.nt ocamlc ocamltools library opt-core otherlibraries otherlibrariesopt
 	cd $(SRC) && make -C tools opt
+# One need to use the standard makefile for ocamlmktop...
+	rm $(SRC)/tools/ocamlmktop
+	cd $(SRC) && make -C tools ocamlmktop
 	touch stamp-build
 
 stamp-runtime: stamp-prepare
