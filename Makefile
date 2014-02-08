@@ -1,12 +1,31 @@
-
-include Makefile.config
-
 SRC = ocaml-src
 
 CORE_OTHER_LIBS = unix str num dynlink
-OTHERLIBRARIES=win32unix str num win32graph dynlink bigarray systhreads
-STDLIB=$(shell $(W32_BINDIR)/ocamlc -config | \
+OTHERLIBRARIES = win32unix str num win32graph dynlink bigarray systhreads
+STDLIB = $(shell $(WIN_BINDIR)/ocamlc -config | \
                sed -n 's/standard_library: \(.*\)/\1/p')
+
+INSTALLED_BINS = ocaml ocamlbuild ocamlbuild.byte ocamlc ocamlcp	\
+ocamldebug ocamldep ocamldoc ocamllex ocamlmklib ocamlmktop		\
+ocamlobjinfo ocamlopt ocamloptp ocamlprof ocamlrun ocamlyacc
+
+INSTALLED_MODULES = Arg Array ArrayLabels Bigarray Bigarray.Array1	\
+Bigarray.Array2 Bigarray.Array3 Bigarray.Genarray Buffer Callback	\
+CamlinternalLazy CamlinternalMod CamlinternalOO Complex Digest		\
+Filename Format Gc Genlex Hashtbl Hashtbl.HashedType Hashtbl.Make	\
+Hashtbl.MakeSeeded Hashtbl.S Hashtbl.SeededHashedType Hashtbl.SeededS	\
+Int32 Int64 Lexing List ListLabels Map Map.Make Map.OrderedType Map.S	\
+Marshal MoreLabels MoreLabels.Hashtbl MoreLabels.Hashtbl.HashedType	\
+MoreLabels.Hashtbl.Make MoreLabels.Hashtbl.MakeSeeded			\
+MoreLabels.Hashtbl.S MoreLabels.Hashtbl.SeededHashedType		\
+MoreLabels.Hashtbl.SeededS MoreLabels.Map MoreLabels.Map.Make		\
+MoreLabels.Map.OrderedType MoreLabels.Map.S MoreLabels.Set		\
+MoreLabels.Set.Make MoreLabels.Set.OrderedType MoreLabels.Set.S		\
+Nativeint Num Obj Oo Parsing Pervasives Pervasives.LargeFile Printexc	\
+Printf Queue Random Random.State Scanf Scanf.Scanning Set.Make		\
+Set.OrderedType Set.S Sort Stack StdLabels StdLabels.Array		\
+StdLabels.List StdLabels.String Str Stream StringLabels Sys Unix	\
+Unix.LargeFile Weak Weak.Make Weak.S
 
 all: stamp-install
 
@@ -16,17 +35,17 @@ stamp-install: stamp-build
 	set -e; cd $(SRC) && for i in $(OTHERLIBRARIES); do \
 	  make -C otherlibs/$$i -f Makefile.nt install installopt; \
 	done
-# Put links to binaries in $W32_BINDIR
-	for i in $(W32_BINDIR)/i686-w64-mingw32/*; do \
-	  ln -sf $$i $(W32_BINDIR)/i686-w64-mingw32-`basename $$i`; \
+# Put links to binaries in $WIN_BINDIR
+	for i in $(INSTALLED_BINS); do \
+	  ln -sf $(WIN_PREFIX)/bin/$$i $(WIN_BINDIR)/$(MINGW_PREF)-$$i; \
 	done
 # Install the Windows ocamlrun binary
-	mkdir -p $(W32_PREFIX)/bin
+	mkdir -p $(WIN_PREFIX)/bin
 	cd $(SRC) && \
-	cp byterun/ocamlrun.target $(W32_PREFIX)/bin/ocamlrun
+	cp byterun/ocamlrun.target $(WIN_PREFIX)/bin/ocamlrun.exe
 # Add a link to camlp4 libraries
-	rm -rf $(W32_PREFIX)/lib/ocaml/camlp4
-	ln -sf $(STDLIB)/camlp4 $(W32_PREFIX)/lib/ocaml/camlp4
+	rm -rf $(WIN_PREFIX)/lib/ocaml/camlp4
+	ln -sf $(STDLIB)/camlp4 $(WIN_PREFIX)/lib/ocaml/camlp4
 	touch stamp-install
 
 stamp-build: stamp-runtime
@@ -48,16 +67,17 @@ stamp-runtime: stamp-prepare
 	touch stamp-runtime
 
 stamp-prepare: stamp-core
-	cd $(SRC)/config && cp s-nt.h s.h 
-	cd $(SRC)/config && cp m-nt.h m.h 
-	cd $(SRC)/config && cp Makefile.mingw Makefile
 # Apply patches
 	set -e; for p in patches/*.txt; do \
 	(cd $(SRC) && \
-	 sed -e 's%W32_BINDIR%$(W32_BINDIR)%g' \
-	     -e 's%W32_PREFIX%$(W32_PREFIX)%g' ../$$p | \
+	 sed -e 's%WIN_PREFIX%$(WIN_PREFIX)%g' ../$$p | \
 	 patch -p 0); \
 	done
+# Replace files
+	cd $(SRC)/config && cp s-nt.h s.h
+	cd $(SRC)/config && cp m-nt.h m.h
+	cd $(SRC)/config && cp Makefile.mingw Makefile.mingw32
+	cd $(SRC)/config && cp Makefile.mingw$(WORD_SIZE) Makefile
 # Save the ocamlrun binary for the local machine
 	cd $(SRC) && cp byterun/ocamlrun byterun/ocamlrun.local
 # Clean-up runtime and libraries
@@ -78,11 +98,11 @@ stamp-core: stamp-configure
 stamp-configure: stamp-copy
 # Configuration...
 	cd $(SRC) && \
-	./configure -prefix $(W32_PREFIX) \
-		-bindir $(W32_BINDIR)/i686-w64-mingw32 \
+	./configure -prefix $(WIN_PREFIX) \
+		-bindir $(WIN_PREFIX)/bin \
 	        -mandir $(shell pwd)/no-man \
-		-cc "gcc -m32" -as "gcc -m32" -aspp "gcc -m32 -c" \
-	 	-no-pthread -no-camlp4
+		-cc "gcc -m$(WORD_SIZE)" -as "gcc -m$(WORD_SIZE)" \
+		-aspp "gcc -m$(WORD_SIZE) -c" -no-pthread -no-camlp4
 	touch stamp-configure
 
 stamp-copy:
@@ -91,13 +111,28 @@ stamp-copy:
 	  echo Error: OCaml sources not found. Check OCAML_SRC variable.; \
 	  exit 1; \
 	fi
-	@if ! [ -f $(W32_BINDIR)/ocamlc ]; then \
-	  echo Error: $(W32_BINDIR)/ocamlc not found. \
-	    Check W32_BINDIR variable.; \
+	@if ! [ -f $(WIN_BINDIR)/ocamlc ]; then \
+	  echo Error: $(WIN_BINDIR)/ocamlc not found. \
+	    Check WIN_BINDIR variable.; \
 	  exit 1; \
 	fi
 	cp -a $(OCAML_SRC) $(SRC)
 	touch stamp-copy
+
+uninstall:
+	for b in $(INSTALLED_BINS); do					\
+	  rm -f "$(PREFIX)/bin/$(MINGW_PREF)-$$b";			\
+	  rm -f "$(PREFIX)/$(MINGW_PREF)/bin/$$b";			\
+	  rm -f "$(PREFIX)/$(MINGW_PREF)/man/man1/$$b.1";		\
+	done;								\
+	for m in $(INSTALLED_MODULES); do				\
+	  rm -f "$(PREFIX)/$(MINGW_PREF)/man/man3/$$m.3o";		\
+	done;								\
+	rm -f "$(PREFIX)/$(MINGW_PREF)/man/man1/ocamlc.opt.1";		\
+	rm -f "$(PREFIX)/$(MINGW_PREF)/man/man1/ocamlopt.opt.1";	\
+	rm -rf "$(PREFIX)/$(MINGW_PREF)/lib/ocaml";			\
+	rm -f "$(PREFIX)/$(MINGW_PREF)/bin/ocamlrun.exe";		\
+	rm -f "$(PREFIX)/$(MINGW_PREF)/bin/ocamlrun";
 
 clean:
 	rm -rf $(SRC) stamp-* no-man
